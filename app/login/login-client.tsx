@@ -17,8 +17,10 @@ function LoginForms() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/profile';
+  const paramMode = searchParams.get('mode');
+  const initialMode = paramMode === 'register' ? 'register' : 'login';
 
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [loading, setLoading] = useState(false);
 
   // Form states

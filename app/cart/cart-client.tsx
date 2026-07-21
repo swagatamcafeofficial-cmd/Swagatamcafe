@@ -25,7 +25,8 @@ import {
   QrCode,
   AlertTriangle,
   ArrowRight,
-  ClipboardList
+  ClipboardList,
+  User
 } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -50,6 +51,7 @@ export function CartClient() {
   const [deliveryAreas, setDeliveryAreas] = useState<any[]>([]);
   const [couponInput, setCouponInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   
   // Checkout Form State
   const [name, setName] = useState('');
@@ -71,7 +73,8 @@ export function CartClient() {
     // Populate user profile details if logged in
     import('@/lib/actions/auth').then(({ getCurrentUserAction }) => {
       getCurrentUserAction().then(user => {
-        if (user) {
+        if (user && user.role === 'customer') {
+          setIsLoggedIn(true);
           setName(user.name);
           setPhone(user.phone);
           if (user.addresses && user.addresses.length > 0) {
@@ -82,6 +85,8 @@ export function CartClient() {
               setDeliveryAreaName(defAddr.village);
             }
           }
+        } else {
+          setIsLoggedIn(false);
         }
       });
     });
@@ -260,177 +265,205 @@ export function CartClient() {
             </Card>
 
             {/* Delivery & Address Form */}
-            <Card className="rounded-2xl border border-stone-200/80 shadow-sm bg-white">
-              <CardContent className="p-6 space-y-5">
-                <h2 className="font-heading text-lg font-bold flex items-center gap-2 border-b border-stone-100 pb-3 text-stone-900">
-                  <MapPin className="w-5 h-5 text-amber-700" />
-                  Delivery & Contact Information
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Recipient Name</label>
-                    <Input 
-                      placeholder="Enter full name" 
-                      value={name} 
-                      onChange={(e) => setName(e.target.value)}
-                      className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
-                    />
+            {isLoggedIn === null ? (
+              <Card className="rounded-2xl border border-stone-200/80 shadow-sm bg-white">
+                <CardContent className="p-12 flex flex-col items-center justify-center space-y-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-stone-900" />
+                  <p className="text-xs text-stone-500 font-semibold">Verifying your login status...</p>
+                </CardContent>
+              </Card>
+            ) : !isLoggedIn ? (
+              <Card className="rounded-2xl border border-[#FFA544]/20 shadow-sm bg-[#FCFBF9] overflow-hidden">
+                <div className="bg-[#FFA544]/5 p-6 border-b border-[#FFA544]/10 text-center">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                    <User className="w-6 h-6 text-amber-700" />
                   </div>
-                  
-                  {/* Phone Number */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-stone-500 uppercase">10-Digit Mobile Number</label>
-                    <Input 
-                      placeholder="e.g. 9876543210" 
-                      value={phone} 
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
-                    />
+                  <h3 className="font-heading text-lg font-bold text-stone-900">Sign In to Order</h3>
+                  <p className="text-xs text-stone-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                    You must be logged in as a customer to place an order.
+                  </p>
+                </div>
+                <CardContent className="p-6 text-center space-y-4">
+                  <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
+                    Register or log in to manage your orders, save delivery locations, and complete checkout.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                    <Button asChild className="rounded-xl bg-stone-900 hover:bg-stone-850 text-white font-bold h-11 px-6 cursor-pointer">
+                      <Link href="/login?from=/cart">Login / Sign In</Link>
+                    </Button>
+                    <Button asChild variant="outline" className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 h-11 px-6 cursor-pointer">
+                      <Link href="/login?from=/cart&mode=register">Create Account</Link>
+                    </Button>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="rounded-2xl border border-stone-200/80 shadow-sm bg-white">
+                <CardContent className="p-6 space-y-5">
+                  <h2 className="font-heading text-lg font-bold flex items-center gap-2 border-b border-stone-100 pb-3 text-stone-900">
+                    <MapPin className="w-5 h-5 text-amber-700" />
+                    Delivery & Contact Information
+                  </h2>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Delivery Area Dropdown */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Delivery Area (Chichli)</label>
-                    <select 
-                      value={deliveryArea || ''}
-                      onChange={(e) => setDeliveryAreaName(e.target.value || null)}
-                      className="w-full flex h-10 items-center justify-between rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-2 text-sm ring-offset-background placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-900 disabled:cursor-not-allowed disabled:opacity-50 text-stone-800"
-                    >
-                      <option value="">Select delivery location</option>
-                      {deliveryAreas.map((da) => (
-                        <option key={da._id} value={da.village}>
-                          {da.village} (Est. {da.estimatedTime}m, Charge: ₹{da.deliveryCharge})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-stone-500 uppercase">Recipient Name</label>
+                      <Input 
+                        placeholder="Enter full name" 
+                        value={name} 
+                        onChange={(e) => setName(e.target.value)}
+                        className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
+                      />
+                    </div>
 
-                  {/* Landmark */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-stone-500 uppercase">Landmark (Optional)</label>
-                    <Input 
-                      placeholder="e.g. Near Girdhar Bakery, Comfort Hotel" 
-                      value={landmark} 
-                      onChange={(e) => setLandmark(e.target.value)}
-                      className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
-                    />
-                  </div>
-                </div>
-
-                {/* Specific Address */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-500 uppercase">Complete Address</label>
-                  <Textarea 
-                    placeholder="Enter house/flat number, building name, street/area details"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 min-h-[80px] text-stone-850"
-                  />
-                </div>
-
-                {/* Delivery Notes */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-500 uppercase">Delivery Instructions (Optional)</label>
-                  <Input 
-                    placeholder="e.g. Please bring change, leave at door, don&apos;t ring bell"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
-                  />
-                </div>
-
-              </CardContent>
-            </Card>
-
-            {/* Payment Method Selector */}
-            <Card className="rounded-2xl border border-stone-200/80 shadow-sm bg-white">
-              <CardContent className="p-6 space-y-5">
-                <h2 className="font-heading text-lg font-bold flex items-center gap-2 border-b border-stone-100 pb-3 text-stone-900">
-                  <ClipboardList className="w-5 h-5 text-amber-700" />
-                  Select Payment Method
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Cash on Delivery */}
-                  <div 
-                    onClick={() => setPaymentMethod('cod')}
-                    className={`rounded-2xl border p-5 cursor-pointer flex gap-4 items-start transition-all ${
-                      paymentMethod === 'cod' 
-                        ? 'border-stone-900 bg-stone-50' 
-                        : 'border-stone-200 hover:bg-stone-50/50'
-                    }`}
-                  >
-                    <Banknote className={`w-6 h-6 shrink-0 mt-0.5 ${paymentMethod === 'cod' ? 'text-stone-900' : 'text-stone-400'}`} />
-                    <div>
-                      <h4 className="font-bold text-sm text-stone-900">Cash on Delivery</h4>
-                      <p className="text-xs text-stone-500 mt-1">Pay with cash or scan delivery partner&apos;s QR when your food arrives.</p>
+                    {/* Phone */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-stone-500 uppercase">Contact Number</label>
+                      <Input 
+                        placeholder="10-digit mobile number" 
+                        value={phone} 
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
+                        maxLength={10}
+                      />
                     </div>
                   </div>
 
-                  {/* UPI Scan and Pay */}
-                  <div 
-                    onClick={() => setPaymentMethod('upi')}
-                    className={`rounded-2xl border p-5 cursor-pointer flex gap-4 items-start transition-all ${
-                      paymentMethod === 'upi' 
-                        ? 'border-stone-900 bg-stone-50' 
-                        : 'border-stone-200 hover:bg-stone-50/50'
-                    }`}
-                  >
-                    <Smartphone className={`w-6 h-6 shrink-0 mt-0.5 ${paymentMethod === 'upi' ? 'text-stone-900' : 'text-stone-400'}`} />
-                    <div>
-                      <h4 className="font-bold text-sm text-stone-900">Scan and Pay (UPI)</h4>
-                      <p className="text-xs text-stone-500 mt-1">Pay instantly by scanning the QR code and enter transaction ID.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Delivery Area Dropdown */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-stone-500 uppercase">Delivery Area (Chichli)</label>
+                      <select 
+                        value={deliveryArea || ''}
+                        onChange={(e) => setDeliveryAreaName(e.target.value || null)}
+                        className="w-full h-10 px-3 rounded-xl border border-stone-200 bg-stone-50/50 text-sm text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                      >
+                        <option value="">Select your area...</option>
+                        {deliveryAreas.map((da) => (
+                          <option key={da._id} value={da.village}>
+                            {da.village} (₹{da.deliveryCharge} delivery)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Landmark */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-stone-500 uppercase">Landmark (Optional)</label>
+                      <Input 
+                        placeholder="e.g. Near Bus Stand" 
+                        value={landmark} 
+                        onChange={(e) => setLandmark(e.target.value)}
+                        className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
+                      />
                     </div>
                   </div>
-                </div>
 
-                {/* UPI scan information */}
-                {paymentMethod === 'upi' && (
-                  <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200 space-y-4">
-                    <div className="flex flex-col sm:flex-row items-center gap-6">
-                      {/* Paytm QR Scanner */}
-                      <div className="relative w-40 h-64 bg-white rounded-2xl p-1 shrink-0 flex items-center justify-center border border-stone-200 overflow-hidden shadow-sm">
-                        <Image 
-                          src="/images/paytm-qr.jpg" 
-                          alt="Paytm QR Scanner - Praveen Kumar Kourav" 
-                          fill
-                          className="object-contain"
-                        />
+                  {/* Specific Address */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-stone-500 uppercase">Specific Address</label>
+                    <Textarea 
+                      placeholder="House No, Building, Street, Ward No." 
+                      value={address} 
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 min-h-[80px] text-stone-850"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-stone-500 uppercase">Delivery Instructions (Optional)</label>
+                    <Input 
+                      placeholder="e.g. Call before delivery, leave at gate" 
+                      value={notes} 
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="rounded-xl border-stone-200 bg-stone-50/50 focus-visible:ring-stone-950 text-stone-850"
+                    />
+                  </div>
+
+                  {/* Payment Method */}
+                  <div className="space-y-3 pt-3 border-t border-stone-100">
+                    <label className="text-xs font-bold text-stone-500 uppercase">Choose Payment Method</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* COD */}
+                      <div 
+                        onClick={() => setPaymentMethod('cod')}
+                        className={`flex gap-3 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                          paymentMethod === 'cod' 
+                            ? 'border-stone-900 bg-stone-50/30' 
+                            : 'border-stone-200 hover:bg-stone-50/50'
+                        }`}
+                      >
+                        <Banknote className={`w-6 h-6 shrink-0 mt-0.5 ${paymentMethod === 'cod' ? 'text-stone-900' : 'text-stone-400'}`} />
+                        <div>
+                          <h4 className="font-bold text-sm text-stone-900">Cash on Delivery</h4>
+                          <p className="text-xs text-stone-500 mt-1">Pay with cash when your food is delivered.</p>
+                        </div>
                       </div>
-                      <div className="space-y-2.5 text-center sm:text-left text-stone-650">
-                        <h4 className="font-bold text-sm text-stone-900">Scan to Pay with Any UPI App</h4>
-                        <p className="text-xs text-stone-500">Scan this QR code using Paytm, Google Pay, PhonePe, or BHIM to pay the total amount.</p>
-                        <div className="space-y-1.5 pt-1">
-                          <p className="text-xs font-medium text-stone-700">Account: <span className="font-bold text-stone-900">Praveen Kumar Kourav</span></p>
-                          <div className="inline-block bg-stone-100 border border-stone-200 px-3 py-1.5 rounded-xl text-xs font-bold text-stone-800 font-mono">
-                            UPI ID: paytm.s1z7dbt@pty
-                          </div>
+
+                      {/* UPI */}
+                      <div 
+                        onClick={() => setPaymentMethod('upi')}
+                        className={`flex gap-3 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                          paymentMethod === 'upi' 
+                            ? 'border-stone-900 bg-stone-50/30' 
+                            : 'border-stone-200 hover:bg-stone-50/50'
+                        }`}
+                      >
+                        <Smartphone className={`w-6 h-6 shrink-0 mt-0.5 ${paymentMethod === 'upi' ? 'text-stone-900' : 'text-stone-400'}`} />
+                        <div>
+                          <h4 className="font-bold text-sm text-stone-900">Scan and Pay (UPI)</h4>
+                          <p className="text-xs text-stone-500 mt-1">Pay instantly by scanning the QR code and enter transaction ID.</p>
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-1.5 pt-2 border-t border-stone-200">
-                      <label className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Enter UPI Transaction ID / Ref No. (Required)
-                      </label>
-                      <Input 
-                        placeholder="12-digit UTR / Ref Number" 
-                        value={upiTxnId}
-                        onChange={(e) => setUpiTxnId(e.target.value)}
-                        className="rounded-xl border-stone-200 bg-white focus-visible:ring-stone-900 font-mono text-sm text-stone-850"
-                      />
-                      <p className="text-[10px] text-stone-400">Orders are confirmed upon verifying the payment ref number.</p>
-                    </div>
                   </div>
-                )}
 
-              </CardContent>
-            </Card>
+                  {/* UPI scan information */}
+                  {paymentMethod === 'upi' && (
+                    <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200 space-y-4">
+                      <div className="flex flex-col sm:flex-row items-center gap-6">
+                        {/* Paytm QR Scanner */}
+                        <div className="relative w-40 h-64 bg-white rounded-2xl p-1 shrink-0 flex items-center justify-center border border-stone-200 overflow-hidden shadow-sm">
+                          <Image 
+                            src="/images/paytm-qr.jpg" 
+                            alt="Paytm QR Scanner - Praveen Kumar Kourav" 
+                            fill
+                            className="object-contain"
+                          />
+                        </div>
+                        <div className="space-y-2.5 text-center sm:text-left text-stone-650">
+                          <h4 className="font-bold text-sm text-stone-900">Scan to Pay with Any UPI App</h4>
+                          <p className="text-xs text-stone-500">Scan this QR code using Paytm, Google Pay, PhonePe, or BHIM to pay the total amount.</p>
+                          <div className="space-y-1.5 pt-1">
+                            <p className="text-xs font-medium text-stone-700">Account: <span className="font-bold text-stone-900">Praveen Kumar Kourav</span></p>
+                            <div className="inline-block bg-stone-100 border border-stone-200 px-3 py-1.5 rounded-xl text-xs font-bold text-stone-800 font-mono">
+                              UPI ID: paytm.s1z7dbt@pty
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-stone-200">
+                        <label className="text-xs font-bold text-amber-700 uppercase flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Enter UPI Transaction ID / Ref No. (Required)
+                        </label>
+                        <Input 
+                          placeholder="12-digit UTR / Ref Number" 
+                          value={upiTxnId}
+                          onChange={(e) => setUpiTxnId(e.target.value)}
+                          className="rounded-xl border-stone-200 bg-white focus-visible:ring-stone-950 font-mono text-sm text-stone-850"
+                        />
+                        <p className="text-[10px] text-stone-400">Orders are confirmed upon verifying the payment ref number.</p>
+                      </div>
+                    </div>
+                  )}
+
+                </CardContent>
+              </Card>
+            )}
 
           </div>
 
@@ -521,14 +554,26 @@ export function CartClient() {
                 </div>
 
                 {/* Place Order CTA */}
-                <Button 
-                  onClick={handlePlaceOrder}
-                  disabled={loading}
-                  className="w-full rounded-xl bg-stone-900 hover:bg-stone-850 text-white font-bold h-12 shadow-sm border-0 mt-2 flex items-center justify-center gap-2 group transition-all cursor-pointer"
-                >
-                  {loading ? 'Processing Order...' : 'Place Order'}
-                  {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />}
-                </Button>
+                {!isLoggedIn ? (
+                  <Button 
+                    asChild
+                    className="w-full rounded-xl bg-stone-900 hover:bg-stone-850 text-white font-bold h-12 shadow-sm border-0 mt-2 flex items-center justify-center gap-2 group transition-all cursor-pointer"
+                  >
+                    <Link href="/login?from=/cart">
+                      Login to Place Order
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handlePlaceOrder}
+                    disabled={loading}
+                    className="w-full rounded-xl bg-stone-900 hover:bg-stone-850 text-white font-bold h-12 shadow-sm border-0 mt-2 flex items-center justify-center gap-2 group transition-all cursor-pointer"
+                  >
+                    {loading ? 'Processing Order...' : 'Place Order'}
+                    {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />}
+                  </Button>
+                )}
 
                 <p className="text-[10px] text-stone-400 text-center leading-tight">
                   By clicking Place Order, you agree to buy these items. Payment verification for UPI takes 5-10 minutes.
